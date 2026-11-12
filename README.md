@@ -24,6 +24,14 @@ ABIs in `abis/` are generated from `contracts/out` in the onchain repo. Regenera
 
 `chain` accepts 8453 (default) and 84532. All data is public on-chain data; no visitor addresses are received or stored. Hiding a guestbook entry is UI moderation only: the message stays on-chain and remains visible through `/graphql` and `/sql`.
 
+## How it runs
+
+Base produces several blocks per second, so following every block in realtime would exhaust any free RPC plan. The indexer therefore runs in catch-up mode:
+
+- `indexer` service: `ponder start` with `endBlock: "latest"` indexes up to the current head and idles; a loop stops it after `INDEX_RUN_SECONDS` (240), pauses `INDEX_PAUSE_SECONDS` (60) and starts again. Crash recovery resumes from the last checkpoint, so each run only fetches the new range. Data lags the chain by at most a few minutes.
+- `api` service: `ponder serve` on the same schema serves the API continuously, also while the indexer restarts.
+- RPC: Envio HyperRPC (archive, no eth_getLogs block-range cap). Alchemy's free plan caps eth_getLogs at 10 blocks and the public Base RPCs are pruned, so neither can backfill.
+
 ## Local development
 
 ```
@@ -43,9 +51,10 @@ git clone https://github.com/tatashandharu15/onchain-indexer.git /opt/onchain-in
 cd /opt/onchain-indexer
 cp .env.example .env
 chmod 600 .env
-# fill PONDER_RPC_URL_8453, PONDER_RPC_URL_84532 and POSTGRES_PASSWORD (openssl rand -hex 24)
+# fill PONDER_RPC_URL_8453, PONDER_RPC_URL_84532 (HyperRPC) and POSTGRES_PASSWORD (openssl rand -hex 24)
 docker compose up -d --build
 docker compose logs -f indexer
+curl -s localhost:42069/stats?chain=8453
 ```
 
 Nginx and TLS:
@@ -65,4 +74,4 @@ The index can always be rebuilt from the chain, so the database needs no backup.
 
 ## Resource limits
 
-Postgres 512 MB, indexer 1 GB and 1 CPU (`docker-compose.yml`). Postgres publishes no port; the indexer listens on 127.0.0.1:42069 only.
+Postgres 512 MB, indexer 768 MB and 1 CPU, api 512 MB and 0.5 CPU (`docker-compose.yml`). Postgres publishes no port; only the api listens, on 127.0.0.1:42069.

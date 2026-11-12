@@ -1,5 +1,16 @@
 name: onchain-indexer
 
+x-app: &app
+  build: .
+  restart: unless-stopped
+  env_file: .env
+  depends_on:
+    db:
+      condition: service_healthy
+  environment:
+    DATABASE_URL: postgres://ponder:${POSTGRES_PASSWORD}@db:5432/ponder
+    NODE_OPTIONS: --max-old-space-size=512
+
 services:
   db:
     image: postgres:17-alpine
@@ -16,23 +27,30 @@ services:
       interval: 10s
       retries: 5
     mem_limit: 512m
-    # No published ports: Postgres is reachable only from the indexer container.
+    # No published ports: Postgres is reachable only from the app containers.
 
+  # Writes the index. Runs `ponder start` up to the chain head, stops, waits, repeats (catch-up mode).
   indexer:
-    build: .
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    env_file: .env
-    environment:
-      DATABASE_URL: postgres://ponder:${POSTGRES_PASSWORD}@db:5432/ponder
-      NODE_OPTIONS: --max-old-space-size=768
+    <<: *app
+    command:
+      - sh
+      - -c
+      - |
+        while true; do
+          timeout -s TERM "$${INDEX_RUN_SECONDS:-240}" npx ponder start --schema "$${DEPLOYMENT_ID:-v1}" --port 42070
+          sleep "$${INDEX_PAUSE_SECONDS:-60}"
+        done
+    mem_limit: 768m
+    cpus: 1.0
+
+  # Serves the public read-only API from the same schema; stays up while the indexer cycles.
+  api:
+    <<: *app
     ports:
       # Localhost only; the host nginx terminates TLS and proxies to it.
       - "127.0.0.1:42069:42069"
-    mem_limit: 1g
-    cpus: 1.0
+    mem_limit: 512m
+    cpus: 0.5
 
 volumes:
   pgdata:
