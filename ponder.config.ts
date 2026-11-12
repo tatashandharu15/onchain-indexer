@@ -3,8 +3,11 @@ import { endorsementsAbi } from "./abis/endorsementsAbi";
 import { guestbookAbi } from "./abis/guestbookAbi";
 import { visitorBadgeAbi } from "./abis/visitorBadgeAbi";
 
-/** Primary RPC from env (e.g. Alchemy), public Base RPC as fallback. */
-const rpc = (primary: string | undefined, fallback: string) => (primary ? [primary, fallback] : fallback);
+/**
+ * RPC from env (an archive endpoint such as Alchemy). The public Base RPCs are pruned
+ * (no history before a recent block) and only work as a last resort for quick local tests.
+ */
+const rpc = (primary: string | undefined, fallback: string) => primary || fallback;
 
 // Same addresses on both chains: same deployer, same nonce sequence.
 const GUESTBOOK = "0x930b86E72b6F2c64fdc0263cf4f0126888b5Cec7";
