@@ -29,7 +29,8 @@ services:
     mem_limit: 512m
     # No published ports: Postgres is reachable only from the app containers.
 
-  # Writes the index. Runs `ponder start` up to the chain head, stops, waits, repeats (catch-up mode).
+  # Writes the index. Each `ponder start` run indexes up to the lagged head and idles; the loop stops it,
+  # waits and starts again (catch-up mode). Crash recovery resumes from the checkpoint.
   indexer:
     <<: *app
     command:
@@ -37,8 +38,8 @@ services:
       - -c
       - |
         while true; do
-          timeout -s TERM "$${INDEX_RUN_SECONDS:-240}" npx ponder start --schema "$${DEPLOYMENT_ID:-v1}" --port 42070
-          sleep "$${INDEX_PAUSE_SECONDS:-60}"
+          timeout -s TERM "$${INDEX_RUN_SECONDS:-120}" npx ponder start --schema "$${DEPLOYMENT_ID:-v1}" --port 42070
+          sleep "$${INDEX_PAUSE_SECONDS:-30}"
         done
     mem_limit: 768m
     cpus: 1.0

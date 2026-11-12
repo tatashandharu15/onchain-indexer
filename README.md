@@ -28,9 +28,10 @@ ABIs in `abis/` are generated from `contracts/out` in the onchain repo. Regenera
 
 Base produces several blocks per second, so following every block in realtime would exhaust any free RPC plan. The indexer therefore runs in catch-up mode:
 
-- `indexer` service: `ponder start` with `endBlock: "latest"` indexes up to the current head and idles; a loop stops it after `INDEX_RUN_SECONDS` (240), pauses `INDEX_PAUSE_SECONDS` (60) and starts again. Crash recovery resumes from the last checkpoint, so each run only fetches the new range. Data lags the chain by at most a few minutes.
-- `api` service: `ponder serve` on the same schema serves the API continuously, also while the indexer restarts.
 - RPC: Envio HyperRPC (archive, no eth_getLogs block-range cap). Alchemy's free plan caps eth_getLogs at 10 blocks and the public Base RPCs are pruned, so neither can backfill.
+- The RPC transport in `ponder.config.ts` reports a "latest" block `RPC_LAG_BLOCKS` (150, about 30 s) behind the real head. With `reorgWindow: 0` and `endBlock: "latest"`, each run backfills only settled blocks with a few `eth_getLogs` calls, logs "Skipped live indexing", and idles. No per-block polling.
+- `indexer` service: a loop runs `ponder start`, stops it after `INDEX_RUN_SECONDS` (120), pauses `INDEX_PAUSE_SECONDS` (30) and repeats. Crash recovery resumes from the last checkpoint (chain settings are not part of Ponder's build id). Data lags the chain by roughly 30 s to 3 minutes.
+- `api` service: `ponder serve` on the same schema serves the API continuously, also while the indexer restarts.
 
 ## Local development
 
