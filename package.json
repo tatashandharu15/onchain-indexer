@@ -1,0 +1,25 @@
+{
+  "name": "onchain-indexer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ponder dev",
+    "start": "ponder start",
+    "db": "ponder db",
+    "codegen": "ponder codegen",
+    "serve": "ponder serve",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "hono": "^4.5.0",
+    "ponder": "0.18.6",
+    "viem": "2.35.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=22.12"
+  }
+}

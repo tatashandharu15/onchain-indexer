@@ -1,0 +1,38 @@
+name: onchain-indexer
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ponder
+      POSTGRES_DB: ponder
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    command: ["postgres", "-c", "shared_buffers=128MB", "-c", "max_connections=40"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ponder -d ponder"]
+      interval: 10s
+      retries: 5
+    mem_limit: 512m
+    # No published ports: Postgres is reachable only from the indexer container.
+
+  indexer:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://ponder:${POSTGRES_PASSWORD}@db:5432/ponder
+      NODE_OPTIONS: --max-old-space-size=768
+    ports:
+      # Localhost only; the host nginx terminates TLS and proxies to it.
+      - "127.0.0.1:42069:42069"
+    mem_limit: 1g
+    cpus: 1.0
+
+volumes:
+  pgdata:
